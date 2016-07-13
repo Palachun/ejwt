@@ -145,6 +145,46 @@ jwt_sign(<<"HS256">>, Payload, Key) ->
 jwt_sign(_, _, _) ->
     alg_not_supported.
 
+
+
+check_application_started() ->
+  %%[application:start(X) || X <- [crypto, asn1, public_key, ssl]],
+  Apps = application:which_applications(),
+  case lists:keysearch(crypto, 1, Apps) of
+    false ->
+      application:start(crypto);
+    _ ->
+      noop
+  end,
+  case lists:keysearch(asn1, 1, Apps) of
+    false ->
+      application:start(asn1);
+    _ ->
+      noop
+  end,
+  case lists:keysearch(public_key, 1, Apps) of
+    false ->
+      application:start(public_key);
+    _ ->
+      noop
+  end,
+  case lists:keysearch(ssl, 1, Apps) of
+    false ->
+      application:start(ssl);
+    _ ->
+      noop
+  end.
+
+jwt_verify(<<"RS256">>, Payload, Key, Signature) ->
+  check_application_started(),
+  [Entry] = public_key:pem_decode(Key),
+  {_, M, E} = public_key:pem_entry_decode(Entry),
+  Signature1 = base64url:decode(Signature),
+  crypto:verify(rsa, sha256, Payload, Signature1, [E, M]);
+
+jwt_verify(_, _, _,_) ->
+  alg_not_supported.
+
 jwt_header(Alg) ->
     {[
         {<<"alg">>, Alg},
